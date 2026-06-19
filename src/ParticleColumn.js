@@ -36,6 +36,11 @@ export class ParticleColumn {
       uHeight: { value: 6.0 },
       uTwist: { value: 1.5 },
       uSpread: { value: 0.25 },
+      uMouseWorld: { value: new THREE.Vector3(9999, 9999, 9999) },
+      uMouseVel: { value: new THREE.Vector3() },
+      uMouseRadius: { value: 1.2 },
+      uMouseDrag: { value: 1.0 },
+      uMouseStick: { value: 0.6 },
     });
     this.posVar.wrapS = THREE.ClampToEdgeWrapping;
     this.posVar.wrapT = THREE.ClampToEdgeWrapping;
@@ -67,6 +72,9 @@ export class ParticleColumn {
         uHueShift: { value: 0 },
         uSat: { value: 0.7 },
         uCoreRadius: { value: 1.0 },
+        uFrostAmount: { value: 0.5 },
+        uGrainScale: { value: 12.0 },
+        uInk: { value: 0.4 },
       },
       transparent: true,
       depthTest: true,
@@ -90,6 +98,12 @@ export class ParticleColumn {
     );
   }
 
+  setMouse(world, vel) {
+    const u = this.posVar.material.uniforms;
+    u.uMouseWorld.value.copy(world);
+    u.uMouseVel.value.copy(vel);
+  }
+
   update(dt, time) {
     const u = this.posVar.material.uniforms;
     const p = this.params;
@@ -105,6 +119,9 @@ export class ParticleColumn {
     u.uHeight.value = p.uHeight;
     u.uTwist.value = p.uTwist;
     u.uSpread.value = p.uSpread;
+    u.uMouseRadius.value = p.uMouseRadius;
+    u.uMouseDrag.value = p.uMouseDrag;
+    u.uMouseStick.value = p.uMouseStick;
     this.gpu.compute();
     const m = this.mat.uniforms;
     m.uPositions.value = this.gpu.getCurrentRenderTarget(this.posVar).texture;
@@ -115,5 +132,8 @@ export class ParticleColumn {
     m.uSat.value = p.uSat;
     m.uCoreRadius.value = p.uCoreRadius;
     m.uHueShift.value = time * 0.04;
+    m.uFrostAmount.value = p.uFrostAmount;
+    m.uGrainScale.value = p.uGrainScale;
+    m.uInk.value = p.uInk;
   }
 }

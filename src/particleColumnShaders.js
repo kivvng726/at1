@@ -37,6 +37,9 @@ export const columnPositionFrag = noiseGLSL + /* glsl */`
   uniform float dt, uTime;
   uniform float uSwirl, uPull, uRise, uNoiseScale, uNoiseStrength;
   uniform float uCoreRadius, uMaxRadius, uHeight, uTwist, uSpread;
+  uniform vec3  uMouseWorld;
+  uniform vec3  uMouseVel;
+  uniform float uMouseRadius, uMouseDrag, uMouseStick;
 
   vec3 spawn(vec2 uv){
     float y = (rand(uv + uTime) - 0.5) * uHeight;
@@ -56,6 +59,11 @@ export const columnPositionFrag = noiseGLSL + /* glsl */`
     vel.xz += inward * uPull * smoothstep(uCoreRadius, uMaxRadius, r);
     vel.y += uRise;
     vel += curlNoise(pos * uNoiseScale + vec3(0.0, uTime * 0.05, 0.0)) * uNoiseStrength;
+
+    vec3 toM = uMouseWorld - pos;
+    float infl = smoothstep(uMouseRadius, 0.0, length(toM));
+    vel += uMouseVel * (infl * uMouseDrag);
+    vel += normalize(toM + 1e-4) * (infl * uMouseStick);
 
     pos += vel * dt;
     life -= dt * 0.25;
@@ -86,22 +94,40 @@ export const columnVertex = /* glsl */`
   }
 `;
 
-// ===== 渲染 fragment:Matcap + 虹彩 =====
+// ===== 渲染 fragment:Matcap + 虹彩 + 水墨磨砂点精灵 =====
 export const columnFragment = /* glsl */`
   precision highp float;
   varying float vLife, vSeed, vHeight, vRadius;
   uniform sampler2D uMatcap;
   uniform float uHasMatcap, uBrightness, uHueScale, uHueShift, uSat, uCoreRadius;
+  uniform float uFrostAmount, uGrainScale, uInk;
+
   vec3 hsv2rgb(vec3 c){
     vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
     vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
   }
+
+  float hash21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
+  float vnoise(vec2 p){
+    vec2 i = floor(p), f = fract(p);
+    float a = hash21(i), b = hash21(i+vec2(1,0)), c = hash21(i+vec2(0,1)), d = hash21(i+vec2(1,1));
+    vec2 u = f*f*(3.0-2.0*f);
+    return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+  }
+
   void main(){
-    vec2 uv = gl_PointCoord * 2.0 - 1.0;
-    float r2 = dot(uv, uv);
-    if (r2 > 1.0) discard;
-    vec3 normal = vec3(uv, sqrt(1.0 - r2));
+    vec2 pc = gl_PointCoord;
+    float dist = length(pc - 0.5);
+    float disc = smoothstep(0.5, 0.0, dist);
+
+    float n = vnoise(pc * uGrainScale + vSeed * 37.0);
+    float mask = disc - (1.0 - n) * uFrostAmount;
+    float alpha = smoothstep(0.0, 0.12, mask);
+    if (alpha <= 0.0) discard;
+
+    vec2 uv = pc * 2.0 - 1.0;
+    vec3 normal = vec3(uv, sqrt(max(0.0, 1.0 - dot(uv, uv))));
     vec3 matcap;
     if (uHasMatcap > 0.5) { matcap = texture2D(uMatcap, normal.xy * 0.5 + 0.5).rgb; }
     else { float d = clamp(normal.z, 0.0, 1.0); float rim = pow(1.0 - normal.z, 2.0); matcap = vec3(d*0.6 + rim*0.9); }
@@ -110,9 +136,11 @@ export const columnFragment = /* glsl */`
     vec3 irid = hsv2rgb(vec3(hue, uSat, 1.0));
     float coreBoost = mix(1.4, 0.6, clamp(vRadius / (uCoreRadius * 3.0), 0.0, 1.0));
 
-    vec3 col = irid * (0.3 + matcap) * uBrightness * coreBoost;
-    float edge = smoothstep(1.0, 0.5, r2);
-    gl_FragColor = vec4(col, edge * clamp(vLife, 0.0, 1.0));
+    vec3 col = irid * (0.3 + matcap) * coreBoost;
+    col *= mix(1.0, n, uInk);
+    col *= uBrightness;
+
+    gl_FragColor = vec4(col, alpha * clamp(vLife, 0.0, 1.0));
   }
 `;
 
@@ -125,9 +153,11 @@ export const bgFragment = /* glsl */`
   precision highp float;
   varying vec2 vUv;
   uniform vec3 uTop, uBottom, uGlow; uniform vec2 uGlowPos;
+  uniform sampler2D uDye; uniform float uDyeStrength;
   void main(){
     vec3 col = mix(uBottom, uTop, vUv.y);
     col += uGlow * smoothstep(0.7, 0.0, distance(vUv, uGlowPos)) * 0.6;
+    col += texture2D(uDye, vUv).rgb * uDyeStrength;
     col *= smoothstep(1.15, 0.35, distance(vUv, vec2(0.5)));
     gl_FragColor = vec4(col, 1.0);
   }

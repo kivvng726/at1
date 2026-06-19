@@ -4,38 +4,61 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-// import { FluidSimulation } from './FluidSimulation.js'; // 停用,后续可作背景层
+import { FluidSimulation } from './FluidSimulation.js';
 import { ParticleColumn } from './ParticleColumn.js';
+import { BokehLayer } from './BokehLayer.js';
 import { bgVertex, bgFragment } from './particleColumnShaders.js';
 import { PostShader } from './postShader.js';
 import { initLeva } from './levaPanel.jsx';
 
 const params = {
-  uSwirl: 1.2,
-  uPull: 1.0,
-  uRise: 0.15,
-  uNoiseScale: 0.35,
-  uNoiseStrength: 0.6,
-  uCoreRadius: 1.0,
-  uMaxRadius: 4.0,
-  uHeight: 6.0,
-  uTwist: 1.5,
-  uSpread: 0.25,
-  uSize: 2.0,
-  uBrightness: 1.0,
-  uHueScale: 0.08,
-  uSat: 0.7,
+  uSwirl: 1.44,
+  uPull: 0.56,
+  uRise: -0.43,
+  uNoiseScale: 0.79,
+  uNoiseStrength: 0.99,
+  uCoreRadius: 1.06,
+  uMaxRadius: 5.12,
+  uHeight: 10,
+  uTwist: 2.34,
+  uSpread: 0.0,
+  uSize: 0.56,
+  uBrightness: 0.2,
+  uHueScale: 0.07,
+  uSat: 0.59,
+  uFrostAmount: 0.5,
+  uGrainScale: 12.0,
+  uInk: 0.4,
+  uMouseRadius: 1.2,
+  uMouseDrag: 1.0,
+  uMouseStick: 0.6,
+  cameraDist: 4.5,
+  cameraFov: 38,
+  bokehCount: 90,
+  bokehOrbitRadius: 3.0,
+  bokehOrbitJitter: 0.8,
+  bokehOrbitBand: 1.5,
+  bokehOrbitSpeed: 0.15,
+  bokehOpacityScale: 1.0,
+  uDyeStrength: 1.0,
   uTop: '#0a0d0c',
   uBottom: '#000000',
   uGlow: '#3a1452',
   uGlowPosX: 0.15,
   uGlowPosY: 0.35,
-  bloomStrength: 0.9,
-  bloomRadius: 0.7,
-  bloomThreshold: 0.0,
+  bloomStrength: 0.3,
+  bloomRadius: 0.4,
+  bloomThreshold: 0.7,
   vignette: 0.4,
-  aberration: 0.002,
-  grain: 0.04,
+  aberration: 0.001,
+  grain: 0.02,
+  uFrost: 0,
+  uFrostScale: 3.0,
+  scrollAngular: 0.5,
+  scrollDescent: 1.0,
+  scrollDamp: 0.07,
+  scrollSens: 0.0015,
+  scrollMax: 9,
 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
@@ -49,12 +72,12 @@ document.body.appendChild(renderer.domElement);
 renderer.setClearColor(0x000000, 1);
 
 const camera = new THREE.PerspectiveCamera(
-  45,
+  params.cameraFov,
   window.innerWidth / window.innerHeight,
   0.1,
   100,
 );
-camera.position.set(0, 0, 9);
+camera.position.set(0, params.uHeight * 0.45, params.cameraDist);
 
 const scene = new THREE.Scene();
 const group = new THREE.Group();
@@ -64,6 +87,38 @@ const column = new ParticleColumn(renderer, params, 256);
 column.loadMatcap('/matcap.png');
 column.points.renderOrder = 1;
 group.add(column.points);
+
+const bokeh = new BokehLayer(params);
+bokeh.setDpr(renderer.getPixelRatio());
+bokeh.points.renderOrder = 0;
+scene.add(bokeh.points);
+
+const fluidParams = {
+  simRes: 128,
+  dyeRes: 256,
+  densityDissipation: 0.97,
+  velocityDissipation: 0.98,
+  pressure: 0.8,
+  pressureIterations: 4,
+  curl: 30,
+  splatRadius: 0.25,
+  splatForce: 6000,
+};
+const fluid = new FluidSimulation(renderer, fluidParams);
+
+const COOL = [[0.5, 0.3, 1.0], [0.3, 0.7, 1.0], [0.0, 0.9, 0.9], [0.8, 0.3, 0.9]];
+function fluidColor() {
+  const c = COOL[(Math.random() * COOL.length) | 0];
+  return new THREE.Vector3(c[0] * 0.18, c[1] * 0.18, c[2] * 0.18);
+}
+
+let fx = 0.5;
+let fy = 0.5;
+let fLX = 0.5;
+let fLY = 0.5;
+let fDx = 0;
+let fDy = 0;
+let fMoved = false;
 
 const bgMat = new THREE.ShaderMaterial({
   vertexShader: bgVertex,
@@ -75,6 +130,8 @@ const bgMat = new THREE.ShaderMaterial({
     uBottom: { value: new THREE.Color(params.uBottom) },
     uGlow: { value: new THREE.Color(params.uGlow) },
     uGlowPos: { value: new THREE.Vector2(params.uGlowPosX, params.uGlowPosY) },
+    uDye: { value: null },
+    uDyeStrength: { value: params.uDyeStrength },
   },
 });
 const bgQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
@@ -101,9 +158,63 @@ composer.addPass(new OutputPass());
 
 const pointer = { nx: 0, ny: 0 };
 
+const mouseWorld = new THREE.Vector3(9999, 9999, 9999);
+const mouseTarget = new THREE.Vector3(9999, 9999, 9999);
+const mousePrev = new THREE.Vector3();
+const mouseVel = new THREE.Vector3();
+const _unproj = new THREE.Vector3();
+const _rayDir = new THREE.Vector3();
+let mouseActive = false;
+
+let scroll = 0;
+let scrollTarget = 0;
+let touchY = null;
+
+window.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  scrollTarget = Math.min(
+    Math.max(scrollTarget + e.deltaY * params.scrollSens, 0),
+    params.scrollMax,
+  );
+}, { passive: false });
+
+window.addEventListener('touchstart', (e) => {
+  touchY = e.touches[0].clientY;
+}, { passive: true });
+
+window.addEventListener('touchmove', (e) => {
+  if (touchY === null) return;
+  const dy = touchY - e.touches[0].clientY;
+  scrollTarget = Math.min(
+    Math.max(scrollTarget + dy * params.scrollSens * 2.0, 0),
+    params.scrollMax,
+  );
+  touchY = e.touches[0].clientY;
+}, { passive: true });
+
+window.addEventListener('touchend', () => {
+  touchY = null;
+});
+
 window.addEventListener('pointermove', (e) => {
-  pointer.nx = (e.clientX / window.innerWidth - 0.5) * 2;
-  pointer.ny = -(e.clientY / window.innerHeight - 0.5) * 2;
+  const nx = (e.clientX / window.innerWidth) * 2 - 1;
+  const ny = -((e.clientY / window.innerHeight) * 2 - 1);
+  pointer.nx = nx;
+  pointer.ny = ny;
+
+  fx = e.clientX / window.innerWidth;
+  fy = 1 - e.clientY / window.innerHeight;
+  fDx = (fx - fLX) * fluidParams.splatForce;
+  fDy = (fy - fLY) * fluidParams.splatForce;
+  fLX = fx;
+  fLY = fy;
+  fMoved = true;
+
+  _unproj.set(nx, ny, 0.5).unproject(camera);
+  _rayDir.copy(_unproj).sub(camera.position).normalize();
+  const tt = -camera.position.z / _rayDir.z;
+  mouseTarget.copy(camera.position).add(_rayDir.multiplyScalar(tt));
+  mouseActive = true;
 });
 
 function syncBackground() {
@@ -115,9 +226,12 @@ function syncBackground() {
 
 function onResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
+  camera.fov = params.cameraFov;
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  bokeh.setDpr(renderer.getPixelRatio());
+  fluid.resize();
   composer.setSize(window.innerWidth, window.innerHeight);
   bloom.setSize(window.innerWidth, window.innerHeight);
   postPass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
@@ -133,6 +247,7 @@ syncBackground();
 window.addEventListener('resize', onResize);
 
 let last = performance.now();
+let lastFov = params.cameraFov;
 
 function loop(now) {
   requestAnimationFrame(loop);
@@ -140,13 +255,47 @@ function loop(now) {
   last = now;
   const t = now * 0.001;
 
-  column.update(dt, t);
-  group.rotation.y += dt * 0.05;
+  if (mouseActive) {
+    mousePrev.copy(mouseWorld);
+    if (mouseWorld.x > 9000) mouseWorld.copy(mouseTarget);
+    mouseWorld.lerp(mouseTarget, 0.2);
+    mouseVel.subVectors(mouseWorld, mousePrev).multiplyScalar(1 / Math.max(dt, 1e-3));
+    mouseVel.clampLength(0, 8);
+  }
+  column.setMouse(mouseWorld, mouseVel);
 
-  camera.position.x += (pointer.nx * 1.2 - camera.position.x) * 0.04;
-  camera.position.y += (pointer.ny * 0.8 - camera.position.y) * 0.04;
-  camera.position.z = 9;
-  camera.lookAt(0, 0, 0);
+  column.update(dt, t);
+  bokeh.points.rotation.y += dt * params.bokehOrbitSpeed;
+  bokeh.update(t);
+  group.rotation.y += dt * 0.01;
+
+  if (fMoved) {
+    fluid.splat(fx, fy, fDx, fDy, fluidColor());
+    fMoved = false;
+  }
+  fluid.step(dt);
+  bgMat.uniforms.uDye.value = fluid.dye.read.texture;
+  bgMat.uniforms.uDyeStrength.value = params.uDyeStrength;
+
+  scrollTarget = Math.min(scrollTarget, params.scrollMax);
+  scroll += (scrollTarget - scroll) * params.scrollDamp;
+  const startY = params.uHeight * 0.45;
+  const theta = Math.PI * 0.5 + scroll * params.scrollAngular;
+  const camY = startY - scroll * params.scrollDescent;
+  const R = params.cameraDist;
+
+  const tx = Math.cos(theta) * R + pointer.nx * 0.4;
+  const ty = camY + pointer.ny * 0.3;
+  const tz = Math.sin(theta) * R;
+  camera.position.x += (tx - camera.position.x) * 0.1;
+  camera.position.y += (ty - camera.position.y) * 0.1;
+  camera.position.z += (tz - camera.position.z) * 0.1;
+  if (params.cameraFov !== lastFov) {
+    camera.fov = params.cameraFov;
+    camera.updateProjectionMatrix();
+    lastFov = params.cameraFov;
+  }
+  camera.lookAt(0, camY, 0);
 
   bloom.strength = params.bloomStrength;
   bloom.radius = params.bloomRadius;
@@ -155,6 +304,8 @@ function loop(now) {
   postPass.uniforms.uVignette.value = params.vignette;
   postPass.uniforms.uAberration.value = params.aberration;
   postPass.uniforms.uGrain.value = params.grain;
+  postPass.uniforms.uFrost.value = params.uFrost;
+  postPass.uniforms.uFrostScale.value = params.uFrostScale;
 
   composer.render();
 }

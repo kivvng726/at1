@@ -90,7 +90,131 @@ function LevaControls({ params, onResize }) {
         onChange: (v) => { params.uSat = v; },
       },
     }),
+    Mouse: folder({
+      uMouseRadius: {
+        value: params.uMouseRadius,
+        min: 0.2,
+        max: 4,
+        onChange: (v) => { params.uMouseRadius = v; },
+      },
+      uMouseDrag: {
+        value: params.uMouseDrag,
+        min: 0,
+        max: 4,
+        onChange: (v) => { params.uMouseDrag = v; },
+      },
+      uMouseStick: {
+        value: params.uMouseStick,
+        min: 0,
+        max: 3,
+        onChange: (v) => { params.uMouseStick = v; },
+      },
+    }),
+    'Ink / Frost': folder({
+      uFrostAmount: {
+        value: params.uFrostAmount,
+        min: 0,
+        max: 1,
+        onChange: (v) => { params.uFrostAmount = v; },
+      },
+      uGrainScale: {
+        value: params.uGrainScale,
+        min: 3,
+        max: 40,
+        onChange: (v) => { params.uGrainScale = v; },
+      },
+      uInk: {
+        value: params.uInk,
+        min: 0,
+        max: 1,
+        onChange: (v) => { params.uInk = v; },
+      },
+    }),
+    Camera: folder({
+      cameraDist: {
+        value: params.cameraDist,
+        min: 2.5,
+        max: 12,
+        onChange: (v) => { params.cameraDist = v; },
+      },
+      cameraFov: {
+        value: params.cameraFov,
+        min: 20,
+        max: 70,
+        onChange: (v) => { params.cameraFov = v; },
+      },
+    }),
+    Scroll: folder({
+      scrollAngular: {
+        value: params.scrollAngular,
+        min: 0,
+        max: 2,
+        onChange: (v) => { params.scrollAngular = v; },
+      },
+      scrollDescent: {
+        value: params.scrollDescent,
+        min: 0,
+        max: 4,
+        onChange: (v) => { params.scrollDescent = v; },
+      },
+      scrollDamp: {
+        value: params.scrollDamp,
+        min: 0.01,
+        max: 0.25,
+        onChange: (v) => { params.scrollDamp = v; },
+      },
+      scrollSens: {
+        value: params.scrollSens,
+        min: 0.0005,
+        max: 0.005,
+        onChange: (v) => { params.scrollSens = v; },
+      },
+      scrollMax: {
+        value: params.scrollMax,
+        min: 1,
+        max: 40,
+        onChange: (v) => { params.scrollMax = v; },
+      },
+    }),
+    Bokeh: folder({
+      bokehOrbitRadius: {
+        value: params.bokehOrbitRadius,
+        min: 1,
+        max: 7,
+        onChange: (v) => { params.bokehOrbitRadius = v; },
+      },
+      bokehOrbitSpeed: {
+        value: params.bokehOrbitSpeed,
+        min: 0,
+        max: 1,
+        onChange: (v) => { params.bokehOrbitSpeed = v; },
+      },
+      bokehOrbitBand: {
+        value: params.bokehOrbitBand,
+        min: 0.1,
+        max: 4,
+        onChange: (v) => { params.bokehOrbitBand = v; },
+      },
+      bokehOrbitJitter: {
+        value: params.bokehOrbitJitter,
+        min: 0,
+        max: 3,
+        onChange: (v) => { params.bokehOrbitJitter = v; },
+      },
+      bokehOpacityScale: {
+        value: params.bokehOpacityScale,
+        min: 0,
+        max: 3,
+        onChange: (v) => { params.bokehOpacityScale = v; },
+      },
+    }),
     Background: folder({
+      uDyeStrength: {
+        value: params.uDyeStrength,
+        min: 0,
+        max: 3,
+        onChange: (v) => { params.uDyeStrength = v; },
+      },
       uTop: {
         value: params.uTop,
         onChange: (v) => { params.uTop = v; onResize(); },
