@@ -9,56 +9,109 @@ import { ParticleColumn } from './ParticleColumn.js';
 import { BokehLayer } from './BokehLayer.js';
 import { bgVertex, bgFragment } from './particleColumnShaders.js';
 import { PostShader } from './postShader.js';
+import { TexturePass } from './TexturePass.js';
+import { WorkCardSystem } from './WorkCards.js';
+import { Spine } from './Spine.js';
 import { initLeva } from './levaPanel.jsx';
 
 const params = {
-  uSwirl: 1.44,
-  uPull: 0.56,
-  uRise: -0.43,
-  uNoiseScale: 0.79,
-  uNoiseStrength: 0.99,
-  uCoreRadius: 1.06,
-  uMaxRadius: 5.12,
-  uHeight: 10,
-  uTwist: 2.34,
+  uSwirl: 2.2,
+  uPull: 4.0,
+  uRise: -0.31,
+  uNoiseScale: 0.78,
+  uNoiseStrength: 0.72,
+  uCoreRadius: 0.85,
+  uMaxRadius: 4.84,
+  uHeight: 12,
+  uTwist: 3.0,
   uSpread: 0.0,
-  uSize: 0.56,
+  uSize: 0.72,
   uBrightness: 0.2,
   uHueScale: 0.07,
-  uSat: 0.59,
-  uFrostAmount: 0.5,
-  uGrainScale: 12.0,
-  uInk: 0.4,
-  uMouseRadius: 1.2,
-  uMouseDrag: 1.0,
-  uMouseStick: 0.6,
-  cameraDist: 4.5,
-  cameraFov: 38,
-  bokehCount: 90,
-  bokehOrbitRadius: 3.0,
-  bokehOrbitJitter: 0.8,
-  bokehOrbitBand: 1.5,
-  bokehOrbitSpeed: 0.15,
-  bokehOpacityScale: 1.0,
+  uSat: 0.48,
+  uFrostAmount: 0,
+  uGrainScale: 5.6,
+  uInk: 0,
+  uMouseRadius: 0.44,
+  uMouseDrag: 0.32,
+  uMouseStick: 0.3,
+  cameraDist: 4.9,
+  cameraFov: 34,
+  bokehCount: 200,
+  bokehRingCount: 6,
+  bokehHeightSpan: 16,
+  bokehOrbitRadius: 3.72,
+  bokehOrbitJitter: 2.66,
+  bokehOrbitBand: 0.22,
+  bokehOrbitSpeed: 0.19,
+  bokehOpacityScale: 0.7,
   uDyeStrength: 1.0,
   uTop: '#0a0d0c',
   uBottom: '#000000',
-  uGlow: '#3a1452',
+  uGlow: '#000000',
   uGlowPosX: 0.15,
   uGlowPosY: 0.35,
-  bloomStrength: 0.3,
-  bloomRadius: 0.4,
-  bloomThreshold: 0.7,
-  vignette: 0.4,
-  aberration: 0.001,
+  bloomStrength: 0,
+  bloomRadius: 0,
+  bloomThreshold: 0,
+  vignette: 0,
+  aberration: 0,
   grain: 0.02,
   uFrost: 0,
   uFrostScale: 3.0,
-  scrollAngular: 0.5,
-  scrollDescent: 1.0,
-  scrollDamp: 0.07,
-  scrollSens: 0.0015,
-  scrollMax: 9,
+  scrollAngular: 0.4,
+  scrollDescent: 0.22,
+  scrollDamp: 0.05,
+  scrollSens: 0.01,
+  scrollMax: 40,
+  cardCount: 16,
+  cardWidth: 1.3,
+  cardHeight: 0.8,
+  cardScrollStart: 0.8,
+  cardScrollGap: 2.9,
+  cardDist: 3.5,
+  cardSide: 0,
+  cardYOffset: 0,
+  cardYStagger: 0,
+  cardTilt: 0,
+  cardFadeRange: 6.0,
+  cardSnap: true,
+  snapDelay: 0.85,
+  snapEase: 0.03,
+  cardTintStrength: 0.05,
+  cardEdge: 0.16,
+  cardFresnelPow: 4.0,
+  cardContentOpacity: 0.71,
+  cardContentBrightness: 2.0,
+  cardContentSat: 0.51,
+  cardBodySat: 0.49,
+  cardGlassDarken: 1.0,
+  cardSheen: 0.40,
+  cardOpacity: 0.20,
+  cardEmissive: 0.0,
+  cardTextGlow: 1.0,
+  cardThickness: 0.02,
+  cardRadius: 0.06,
+  cardBreathAmp: 0.05,
+  cardHoverPush: 0.6,
+  spineRotX: 0,
+  spineRotY: 0,
+  spineRotZ: 0,
+  spineYOffset: 0,
+  spineSpin: 0.05,
+  spineScaleMul: 0.6,
+  spineTransmission: 1.0,
+  spineRoughness: 0.55,
+  spineThickness: 1.6,
+  spineIor: 1.3,
+  spineIridescence: 1.0,
+  spineIridescenceIOR: 1.3,
+  spineClearcoat: 0.35,
+  spineClearcoatRoughness: 0.45,
+  spineEnvIntensity: 1.3,
+  spineAttenuationDistance: 4.0,
+  spineColor: '#9aa7bd',
+  spineAttenuationColor: '#bcd2e0',
 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
@@ -79,9 +132,10 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(0, params.uHeight * 0.45, params.cameraDist);
 
-const scene = new THREE.Scene();
+const baseScene = new THREE.Scene();
+const cardScene = new THREE.Scene();
 const group = new THREE.Group();
-scene.add(group);
+baseScene.add(group);
 
 const column = new ParticleColumn(renderer, params, 256);
 column.loadMatcap('/matcap.png');
@@ -90,8 +144,8 @@ group.add(column.points);
 
 const bokeh = new BokehLayer(params);
 bokeh.setDpr(renderer.getPixelRatio());
-bokeh.points.renderOrder = 0;
-scene.add(bokeh.points);
+bokeh.root.renderOrder = 0;
+baseScene.add(bokeh.root);
 
 const fluidParams = {
   simRes: 128,
@@ -137,10 +191,41 @@ const bgMat = new THREE.ShaderMaterial({
 const bgQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
 bgQuad.frustumCulled = false;
 bgQuad.renderOrder = -1;
-scene.add(bgQuad);
+baseScene.add(bgQuad);
+
+const spine = new Spine(params);
+baseScene.add(spine.group);
+spine.setEnvironment(baseScene, renderer);
+spine.load('/models/spine.glb');
+
+const cardSystem = new WorkCardSystem(params, cardScene, renderer);
+
+const sceneRT = new THREE.WebGLRenderTarget(1, 1, {
+  type: THREE.HalfFloatType,
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.LinearFilter,
+  depthBuffer: true,
+  stencilBuffer: false,
+});
+const sceneRes = new THREE.Vector2();
+
+function resizeSceneRT() {
+  const w = renderer.domElement.width;
+  const h = renderer.domElement.height;
+  sceneRT.setSize(w, h);
+  sceneRes.set(w, h);
+}
+
+resizeSceneRT();
 
 const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
+const texturePass = new TexturePass(sceneRT.texture);
+composer.addPass(texturePass);
+
+const cardPass = new RenderPass(cardScene, camera);
+cardPass.clear = false;
+cardPass.clearDepth = true;
+composer.addPass(cardPass);
 
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -169,9 +254,11 @@ let mouseActive = false;
 let scroll = 0;
 let scrollTarget = 0;
 let touchY = null;
+let lastWheel = -1e9;
 
 window.addEventListener('wheel', (e) => {
   e.preventDefault();
+  lastWheel = performance.now();
   scrollTarget = Math.min(
     Math.max(scrollTarget + e.deltaY * params.scrollSens, 0),
     params.scrollMax,
@@ -185,6 +272,7 @@ window.addEventListener('touchstart', (e) => {
 window.addEventListener('touchmove', (e) => {
   if (touchY === null) return;
   const dy = touchY - e.touches[0].clientY;
+  lastWheel = performance.now();
   scrollTarget = Math.min(
     Math.max(scrollTarget + dy * params.scrollSens * 2.0, 0),
     params.scrollMax,
@@ -232,6 +320,8 @@ function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   bokeh.setDpr(renderer.getPixelRatio());
   fluid.resize();
+  resizeSceneRT();
+  texturePass.texture = sceneRT.texture;
   composer.setSize(window.innerWidth, window.innerHeight);
   bloom.setSize(window.innerWidth, window.innerHeight);
   postPass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
@@ -240,7 +330,7 @@ function onResize() {
 initLeva(params, () => {
   syncBackground();
   onResize();
-});
+}, spine);
 
 syncBackground();
 
@@ -265,9 +355,10 @@ function loop(now) {
   column.setMouse(mouseWorld, mouseVel);
 
   column.update(dt, t);
-  bokeh.points.rotation.y += dt * params.bokehOrbitSpeed;
+  bokeh.root.rotation.y += dt * params.bokehOrbitSpeed;
   bokeh.update(t);
   group.rotation.y += dt * 0.01;
+  spine.update(dt);
 
   if (fMoved) {
     fluid.splat(fx, fy, fDx, fDy, fluidColor());
@@ -278,6 +369,14 @@ function loop(now) {
   bgMat.uniforms.uDyeStrength.value = params.uDyeStrength;
 
   scrollTarget = Math.min(scrollTarget, params.scrollMax);
+
+  if (params.cardSnap && now - lastWheel > params.snapDelay * 1000) {
+    const n = Math.round((scrollTarget - params.cardScrollStart) / params.cardScrollGap);
+    const snapTo = params.cardScrollStart
+      + THREE.MathUtils.clamp(n, 0, Math.max(0, params.cardCount - 1)) * params.cardScrollGap;
+    scrollTarget += (snapTo - scrollTarget) * params.snapEase;
+  }
+
   scroll += (scrollTarget - scroll) * params.scrollDamp;
   const startY = params.uHeight * 0.45;
   const theta = Math.PI * 0.5 + scroll * params.scrollAngular;
@@ -296,6 +395,13 @@ function loop(now) {
     lastFov = params.cameraFov;
   }
   camera.lookAt(0, camY, 0);
+
+  renderer.setRenderTarget(sceneRT);
+  renderer.clear();
+  renderer.render(baseScene, camera);
+  renderer.setRenderTarget(null);
+
+  cardSystem.update(sceneRT.texture, sceneRes, t, scroll, camera, pointer);
 
   bloom.strength = params.bloomStrength;
   bloom.radius = params.bloomRadius;

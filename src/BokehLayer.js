@@ -37,38 +37,54 @@ const bokehFragment = /* glsl */`
   }
 `;
 
+function buildRingGeometry(params, ringIndex, ringCount) {
+  const N = params.bokehCount;
+  const pos = new Float32Array(N * 3);
+  const size = new Float32Array(N);
+  const color = new Float32Array(N * 3);
+  const phase = new Float32Array(N);
+  const opacity = new Float32Array(N);
+
+  const hueShift = (ringIndex / Math.max(ringCount, 1)) * 0.12;
+
+  for (let i = 0; i < N; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const radius = params.bokehOrbitRadius + (Math.random() - 0.5) * params.bokehOrbitJitter;
+    const y = (Math.random() - 0.5) * params.bokehOrbitBand;
+    pos[i * 3] = Math.cos(ang) * radius;
+    pos[i * 3 + 1] = y;
+    pos[i * 3 + 2] = Math.sin(ang) * radius;
+    size[i] = 6 + Math.random() * 20;
+    const c = hsl2rgb(0.55 + Math.random() * 0.35 + hueShift, 0.5, 0.65);
+    color[i * 3] = c[0];
+    color[i * 3 + 1] = c[1];
+    color[i * 3 + 2] = c[2];
+    phase[i] = Math.random() * Math.PI * 2;
+    opacity[i] = 0.06 + Math.random() * 0.14;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(color, 3));
+  geo.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
+  geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacity, 1));
+  return geo;
+}
+
+function ringCenterY(params, ringIndex, ringCount) {
+  if (ringCount <= 1) return 0;
+  const t = ringIndex / (ringCount - 1);
+  return (t - 0.5) * params.bokehHeightSpan;
+}
+
 export class BokehLayer {
   constructor(params) {
     this.params = params;
-    const N = params.bokehCount;
-    const pos = new Float32Array(N * 3);
-    const size = new Float32Array(N);
-    const color = new Float32Array(N * 3);
-    const phase = new Float32Array(N);
-    const opacity = new Float32Array(N);
-
-    for (let i = 0; i < N; i++) {
-      const ang = Math.random() * Math.PI * 2;
-      const radius = params.bokehOrbitRadius + (Math.random() - 0.5) * params.bokehOrbitJitter;
-      const y = (Math.random() - 0.5) * params.bokehOrbitBand;
-      pos[i * 3] = Math.cos(ang) * radius;
-      pos[i * 3 + 1] = y;
-      pos[i * 3 + 2] = Math.sin(ang) * radius;
-      size[i] = 6 + Math.random() * 20;
-      const c = hsl2rgb(0.55 + Math.random() * 0.35, 0.5, 0.65);
-      color[i * 3] = c[0];
-      color[i * 3 + 1] = c[1];
-      color[i * 3 + 2] = c[2];
-      phase[i] = Math.random() * Math.PI * 2;
-      opacity[i] = 0.06 + Math.random() * 0.14;
-    }
-
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
-    geo.setAttribute('aColor', new THREE.BufferAttribute(color, 3));
-    geo.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
-    geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacity, 1));
+    this.root = new THREE.Group();
+    this.rings = [];
+    this._ringCount = -1;
+    this._perRing = -1;
 
     this.mat = new THREE.ShaderMaterial({
       vertexShader: bokehVertex,
@@ -84,8 +100,39 @@ export class BokehLayer {
       blending: THREE.AdditiveBlending,
     });
 
-    this.points = new THREE.Points(geo, this.mat);
-    this.points.frustumCulled = false;
+    this.syncRings();
+  }
+
+  syncRings() {
+    const p = this.params;
+    const ringCount = Math.max(1, Math.floor(p.bokehRingCount));
+    const perRing = Math.max(1, Math.floor(p.bokehCount));
+    if (ringCount === this._ringCount && perRing === this._perRing) return;
+
+    this.rings.forEach((ring) => {
+      this.root.remove(ring);
+      ring.geometry.dispose();
+    });
+    this.rings = [];
+
+    for (let r = 0; r < ringCount; r++) {
+      const geo = buildRingGeometry(p, r, ringCount);
+      const points = new THREE.Points(geo, this.mat);
+      points.frustumCulled = false;
+      points.position.y = ringCenterY(p, r, ringCount);
+      this.root.add(points);
+      this.rings.push(points);
+    }
+
+    this._ringCount = ringCount;
+    this._perRing = perRing;
+  }
+
+  layoutRings() {
+    const ringCount = this.rings.length;
+    this.rings.forEach((ring, r) => {
+      ring.position.y = ringCenterY(this.params, r, ringCount);
+    });
   }
 
   setDpr(dpr) {
@@ -93,7 +140,14 @@ export class BokehLayer {
   }
 
   update(time) {
+    this.syncRings();
+    this.layoutRings();
     this.mat.uniforms.uTime.value = time;
     this.mat.uniforms.uOpacityScale.value = this.params.bokehOpacityScale;
+  }
+
+  dispose() {
+    this.rings.forEach((ring) => ring.geometry.dispose());
+    this.mat.dispose();
   }
 }
