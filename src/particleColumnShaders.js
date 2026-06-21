@@ -82,12 +82,15 @@ export const columnVertex = /* glsl */`
   uniform float uSize, uDpr;
   attribute vec2 reference;
   varying float vLife, vSeed, vHeight, vRadius;
+  varying float vClusterHue, vTone;
   float rand(vec2 c){ return fract(sin(dot(c, vec2(12.9898,78.233)))*43758.5453); }
   void main(){
     vec4 data = texture2D(uPositions, reference);
     vec3 pos = data.xyz;
     vLife = data.w; vSeed = rand(reference);
     vHeight = pos.y; vRadius = length(pos.xz);
+    vClusterHue = fract(vSeed * 0.7);
+    vTone = clamp(vLife * 0.55 + vSeed * 0.45, 0.0, 1.0);
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = uSize * uDpr * 60.0 / max(-mv.z, 0.1);
@@ -98,6 +101,7 @@ export const columnVertex = /* glsl */`
 export const columnFragment = /* glsl */`
   precision highp float;
   varying float vLife, vSeed, vHeight, vRadius;
+  varying float vClusterHue, vTone;
   uniform sampler2D uMatcap;
   uniform float uHasMatcap, uBrightness, uHueScale, uHueShift, uSat, uCoreRadius;
   uniform float uFrostAmount, uGrainScale, uInk;
@@ -126,17 +130,10 @@ export const columnFragment = /* glsl */`
     float alpha = smoothstep(0.0, 0.12, mask);
     if (alpha <= 0.0) discard;
 
-    vec2 uv = pc * 2.0 - 1.0;
-    vec3 normal = vec3(uv, sqrt(max(0.0, 1.0 - dot(uv, uv))));
-    vec3 matcap;
-    if (uHasMatcap > 0.5) { matcap = texture2D(uMatcap, normal.xy * 0.5 + 0.5).rgb; }
-    else { float d = clamp(normal.z, 0.0, 1.0); float rim = pow(1.0 - normal.z, 2.0); matcap = vec3(d*0.6 + rim*0.9); }
-
-    float hue = fract(vSeed * 0.7 + vHeight * uHueScale + normal.x * 0.15 + uHueShift);
-    vec3 irid = hsv2rgb(vec3(hue, uSat, 1.0));
-    float coreBoost = mix(1.4, 0.6, clamp(vRadius / (uCoreRadius * 3.0), 0.0, 1.0));
-
-    vec3 col = irid * (0.3 + matcap) * coreBoost;
+    float hue = fract(vClusterHue + vHeight * uHueScale + vTone * uHueScale * 0.5 + uHueShift);
+    float sat = uSat;
+    float light = mix(0.35, 0.72, vTone);
+    vec3 col = hsv2rgb(vec3(hue, sat, light));
     col *= mix(1.0, n, uInk);
     col *= uBrightness;
 
@@ -152,12 +149,21 @@ export const bgVertex = /* glsl */`
 export const bgFragment = /* glsl */`
   precision highp float;
   varying vec2 vUv;
-  uniform vec3 uTop, uBottom, uGlow; uniform vec2 uGlowPos;
-  uniform sampler2D uDye; uniform float uDyeStrength;
+  uniform vec3 uTop, uBottom, uGlow, uDyeColor;
+  uniform vec2 uGlowPos;
+  uniform sampler2D uDye;
+  uniform float uDyeStrength;
+  uniform float uDyeAdditive;
   void main(){
     vec3 col = mix(uBottom, uTop, vUv.y);
     col += uGlow * smoothstep(0.7, 0.0, distance(vUv, uGlowPos)) * 0.6;
-    col += texture2D(uDye, vUv).rgb * uDyeStrength;
+    vec4 dye = texture2D(uDye, vUv);
+    if (uDyeAdditive > 0.5) {
+      col += dye.rgb * uDyeStrength;
+    } else {
+      float d = max(dye.r, max(dye.g, dye.b));
+      col = mix(col, uDyeColor, clamp(d * uDyeStrength, 0.0, 1.0));
+    }
     col *= smoothstep(1.15, 0.35, distance(vUv, vec2(0.5)));
     gl_FragColor = vec4(col, 1.0);
   }

@@ -12,7 +12,11 @@ import { PostShader } from './postShader.js';
 import { TexturePass } from './TexturePass.js';
 import { WorkCardSystem } from './WorkCards.js';
 import { Spine } from './Spine.js';
+import { GooLayer } from './GooLayer.js';
 import { initLeva } from './levaPanel.jsx';
+import { applyTheme } from './themes.js';
+import { initThemePill, reflectTheme } from './themePill.js';
+import { initAtMenu } from './atMenu.js';
 
 const params = {
   uSwirl: 2.2,
@@ -22,18 +26,18 @@ const params = {
   uNoiseStrength: 0.72,
   uCoreRadius: 0.85,
   uMaxRadius: 4.84,
-  uHeight: 12,
+  uHeight: 8,
   uTwist: 3.0,
   uSpread: 0.0,
   uSize: 0.72,
-  uBrightness: 0.2,
+  uBrightness: 1.0,
   uHueScale: 0.07,
-  uSat: 0.48,
+  uSat: 0,
   uFrostAmount: 0,
   uGrainScale: 5.6,
   uInk: 0,
-  uMouseRadius: 0.44,
-  uMouseDrag: 0.32,
+  uMouseRadius: 0.92,
+  uMouseDrag: 0.92,
   uMouseStick: 0.3,
   cameraDist: 4.9,
   cameraFov: 34,
@@ -44,19 +48,20 @@ const params = {
   bokehOrbitJitter: 2.66,
   bokehOrbitBand: 0.22,
   bokehOrbitSpeed: 0.19,
-  bokehOpacityScale: 0.7,
+  bokehOpacityScale: 1.0,
   uDyeStrength: 1.0,
-  uTop: '#0a0d0c',
+  uDyeColor: '#ffffff',
+  uTop: '#ffffff',
   uBottom: '#000000',
   uGlow: '#000000',
-  uGlowPosX: 0.15,
-  uGlowPosY: 0.35,
+  uGlowPosX: 0.0,
+  uGlowPosY: 0.18,
   bloomStrength: 0,
   bloomRadius: 0,
-  bloomThreshold: 0,
-  vignette: 0,
-  aberration: 0,
-  grain: 0.02,
+  bloomThreshold: 0.08,
+  vignette: 1.0,
+  aberration: 0.005,
+  grain: 0,
   uFrost: 0,
   uFrostScale: 3.0,
   scrollAngular: 0.4,
@@ -65,11 +70,11 @@ const params = {
   scrollSens: 0.01,
   scrollMax: 40,
   cardCount: 16,
-  cardWidth: 1.3,
-  cardHeight: 0.8,
+  cardWidth: 1.5,
+  cardHeight: 1,
   cardScrollStart: 0.8,
   cardScrollGap: 2.9,
-  cardDist: 3.5,
+  cardDist: 3,
   cardSide: 0,
   cardYOffset: 0,
   cardYStagger: 0,
@@ -80,16 +85,16 @@ const params = {
   snapEase: 0.03,
   cardTintStrength: 0.05,
   cardEdge: 0.16,
-  cardFresnelPow: 4.0,
-  cardContentOpacity: 0.71,
+  cardFresnelPow: 5.0,
+  cardContentOpacity: 1.0,
   cardContentBrightness: 2.0,
-  cardContentSat: 0.51,
-  cardBodySat: 0.49,
+  cardContentSat: 1.0,
+  cardBodySat: 1.0,
   cardGlassDarken: 1.0,
-  cardSheen: 0.40,
-  cardOpacity: 0.20,
+  cardSheen: 0.0,
+  cardOpacity: 0.81,
   cardEmissive: 0.0,
-  cardTextGlow: 1.0,
+  cardTextGlow: 3.0,
   cardThickness: 0.02,
   cardRadius: 0.06,
   cardBreathAmp: 0.05,
@@ -99,19 +104,31 @@ const params = {
   spineRotZ: 0,
   spineYOffset: 0,
   spineSpin: 0.05,
-  spineScaleMul: 0.6,
-  spineTransmission: 1.0,
-  spineRoughness: 0.55,
-  spineThickness: 1.6,
-  spineIor: 1.3,
+  spineScaleMul: 1,
+  spineTransmission: 0.8,
+  spineRoughness: 1.0,
+  spineThickness: 5.0,
+  spineIor: 1.0,
   spineIridescence: 1.0,
-  spineIridescenceIOR: 1.3,
-  spineClearcoat: 0.35,
-  spineClearcoatRoughness: 0.45,
-  spineEnvIntensity: 1.3,
-  spineAttenuationDistance: 4.0,
-  spineColor: '#9aa7bd',
-  spineAttenuationColor: '#bcd2e0',
+  spineIridescenceIOR: 1.0,
+  spineClearcoat: 1.0,
+  spineClearcoatRoughness: 1.0,
+  spineEnvIntensity: 3.0,
+  spineAttenuationDistance: 8.0,
+  spineColor: '#000000',
+  spineAttenuationColor: '#ffffff',
+  gooCount: 2,
+  gooBaseR: 0.15,
+  gooWobble: 0.03,
+  gooGrain: 0,
+  gooInfluence: 2.2,
+  gooPull: 0.8,
+  gooStiffness: 4,
+  gooDamping: 4,
+  gooStretch: 0.18,
+  gooColor: '#040406',
+  bokehColorMode: 'mono',
+  bgDyeAdditive: false,
 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
@@ -119,10 +136,10 @@ renderer.autoClear = false;
 renderer.toneMapping = THREE.NoToneMapping;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.domElement.style.cssText = 'position:fixed;inset:0;background:#000;';
+renderer.domElement.style.cssText = 'position:fixed;inset:0;background:#ffffff;';
 document.body.appendChild(renderer.domElement);
 
-renderer.setClearColor(0x000000, 1);
+renderer.setClearColor(0xffffff, 1);
 
 const camera = new THREE.PerspectiveCamera(
   params.cameraFov,
@@ -147,6 +164,10 @@ bokeh.setDpr(renderer.getPixelRatio());
 bokeh.root.renderOrder = 0;
 baseScene.add(bokeh.root);
 
+const goo = new GooLayer(params);
+goo.group.renderOrder = 2;
+baseScene.add(goo.group);
+
 const fluidParams = {
   simRes: 128,
   dyeRes: 256,
@@ -159,12 +180,6 @@ const fluidParams = {
   splatForce: 6000,
 };
 const fluid = new FluidSimulation(renderer, fluidParams);
-
-const COOL = [[0.5, 0.3, 1.0], [0.3, 0.7, 1.0], [0.0, 0.9, 0.9], [0.8, 0.3, 0.9]];
-function fluidColor() {
-  const c = COOL[(Math.random() * COOL.length) | 0];
-  return new THREE.Vector3(c[0] * 0.18, c[1] * 0.18, c[2] * 0.18);
-}
 
 let fx = 0.5;
 let fy = 0.5;
@@ -186,6 +201,8 @@ const bgMat = new THREE.ShaderMaterial({
     uGlowPos: { value: new THREE.Vector2(params.uGlowPosX, params.uGlowPosY) },
     uDye: { value: null },
     uDyeStrength: { value: params.uDyeStrength },
+    uDyeColor: { value: new THREE.Color(params.uDyeColor) },
+    uDyeAdditive: { value: params.bgDyeAdditive ? 1 : 0 },
   },
 });
 const bgQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
@@ -195,7 +212,6 @@ baseScene.add(bgQuad);
 
 const spine = new Spine(params);
 baseScene.add(spine.group);
-spine.setEnvironment(baseScene, renderer);
 spine.load('/models/spine.glb');
 
 const cardSystem = new WorkCardSystem(params, cardScene, renderer);
@@ -233,10 +249,10 @@ const bloom = new UnrealBloomPass(
   params.bloomRadius,
   params.bloomThreshold,
 );
-composer.addPass(bloom);
-
 const postPass = new ShaderPass(PostShader);
 postPass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+
+composer.addPass(bloom);
 composer.addPass(postPass);
 
 composer.addPass(new OutputPass());
@@ -249,6 +265,12 @@ const mousePrev = new THREE.Vector3();
 const mouseVel = new THREE.Vector3();
 const _unproj = new THREE.Vector3();
 const _rayDir = new THREE.Vector3();
+const _gooRay = new THREE.Raycaster();
+const _gooPlane = new THREE.Plane();
+const _camDir = new THREE.Vector3();
+const _origin = new THREE.Vector3(0, 0, 0);
+const _gooMouse = new THREE.Vector3();
+const _ndc = new THREE.Vector2();
 let mouseActive = false;
 
 let scroll = 0;
@@ -310,6 +332,9 @@ function syncBackground() {
   bgMat.uniforms.uBottom.value.set(params.uBottom);
   bgMat.uniforms.uGlow.value.set(params.uGlow);
   bgMat.uniforms.uGlowPos.value.set(params.uGlowPosX, params.uGlowPosY);
+  bgMat.uniforms.uDyeStrength.value = params.uDyeStrength;
+  bgMat.uniforms.uDyeColor.value.set(params.uDyeColor);
+  bgMat.uniforms.uDyeAdditive.value = params.bgDyeAdditive ? 1 : 0;
 }
 
 function onResize() {
@@ -330,9 +355,42 @@ function onResize() {
 initLeva(params, () => {
   syncBackground();
   onResize();
-}, spine);
+}, spine, goo);
 
-syncBackground();
+const themeCtx = {
+  params,
+  renderer,
+  baseScene,
+  bokeh,
+  spine,
+  goo,
+  bloom,
+  syncBackground,
+  currentThemeId: 'mono',
+  fluidSplatScale: 0.32,
+};
+
+initThemePill(themeCtx);
+
+initAtMenu({
+  defaultId: 'xr',
+  onSelect(id) {
+    console.log('nav:', id);
+  },
+  onAsk(q) {
+    console.log('ASK:', q);
+  },
+});
+
+const COOL = [[0.5, 0.3, 1.0], [0.3, 0.7, 1.0], [0.0, 0.9, 0.9], [0.8, 0.3, 0.9]];
+function fluidColor() {
+  const c = COOL[(Math.random() * COOL.length) | 0];
+  const k = themeCtx.fluidSplatScale;
+  return new THREE.Vector3(c[0] * k, c[1] * k, c[2] * k);
+}
+
+applyTheme(themeCtx, 'mono');
+reflectTheme('mono');
 
 window.addEventListener('resize', onResize);
 
@@ -366,7 +424,6 @@ function loop(now) {
   }
   fluid.step(dt);
   bgMat.uniforms.uDye.value = fluid.dye.read.texture;
-  bgMat.uniforms.uDyeStrength.value = params.uDyeStrength;
 
   scrollTarget = Math.min(scrollTarget, params.scrollMax);
 
@@ -395,6 +452,13 @@ function loop(now) {
     lastFov = params.cameraFov;
   }
   camera.lookAt(0, camY, 0);
+
+  camera.getWorldDirection(_camDir);
+  _gooPlane.setFromNormalAndCoplanarPoint(_camDir, _origin);
+  _ndc.set(pointer.nx, pointer.ny);
+  _gooRay.setFromCamera(_ndc, camera);
+  _gooRay.ray.intersectPlane(_gooPlane, _gooMouse);
+  goo.update(dt, camera, _gooMouse, mouseActive);
 
   renderer.setRenderTarget(sceneRT);
   renderer.clear();

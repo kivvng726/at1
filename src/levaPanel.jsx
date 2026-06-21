@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Leva, folder, useControls } from 'leva';
 
-function LevaControls({ params, onResize, spine }) {
+function LevaControls({ params, onResize, spine, goo }) {
   useControls({
     Column: folder({
       uSwirl: {
@@ -440,7 +440,7 @@ function LevaControls({ params, onResize, spine }) {
         value: params.uDyeStrength,
         min: 0,
         max: 3,
-        onChange: (v) => { params.uDyeStrength = v; },
+        onChange: (v) => { params.uDyeStrength = v; onResize(); },
       },
       uTop: {
         value: params.uTop,
@@ -503,6 +503,84 @@ function LevaControls({ params, onResize, spine }) {
         min: 0,
         max: 0.2,
         onChange: (v) => { params.grain = v; },
+      },
+    }),
+    Goo: folder({
+      gooCount: {
+        value: params.gooCount,
+        min: 1,
+        max: 14,
+        step: 1,
+        onChange: (v) => { params.gooCount = v; },
+      },
+      gooBaseR: {
+        value: params.gooBaseR,
+        min: 0.1,
+        max: 0.5,
+        step: 0.01,
+        label: 'baseR',
+        onChange: (v) => { params.gooBaseR = v; },
+      },
+      gooWobble: {
+        value: params.gooWobble,
+        min: 0,
+        max: 0.3,
+        step: 0.01,
+        label: 'wobble',
+        onChange: (v) => { params.gooWobble = v; },
+      },
+      gooGrain: {
+        value: params.gooGrain,
+        min: 0,
+        max: 1.5,
+        step: 0.01,
+        label: 'grain',
+        onChange: (v) => { params.gooGrain = v; },
+      },
+      gooColor: {
+        value: params.gooColor,
+        label: 'color',
+        onChange: (v) => { params.gooColor = v; },
+      },
+      gooInfluence: {
+        value: params.gooInfluence,
+        min: 0.5,
+        max: 5,
+        step: 0.01,
+        label: 'influence',
+        onChange: (v) => { params.gooInfluence = v; },
+      },
+      gooPull: {
+        value: params.gooPull,
+        min: 0,
+        max: 1.5,
+        step: 0.01,
+        label: 'pull',
+        onChange: (v) => { params.gooPull = v; },
+      },
+      gooStiffness: {
+        value: params.gooStiffness,
+        min: 1,
+        max: 12,
+        step: 0.1,
+        label: 'stiffness',
+        onChange: (v) => { params.gooStiffness = v; },
+      },
+      gooDamping: {
+        value: params.gooDamping,
+        min: 1,
+        max: 12,
+        step: 0.1,
+        label: 'damping',
+        onChange: (v) => { params.gooDamping = v; },
+      },
+      gooStretch: {
+        value: params.gooStretch,
+        min: 0,
+        max: 0.5,
+        step: 0.01,
+        label: 'stretch',
+        onChange: (v) => { params.gooStretch = v; },
       },
     }),
     脊柱: folder({
@@ -659,14 +737,14 @@ function LevaControls({ params, onResize, spine }) {
   return null;
 }
 
-export function initLeva(params, onResize, spine) {
+export function initLeva(params, onResize, spine, goo) {
   const el = document.createElement('div');
   document.body.appendChild(el);
 
   createRoot(el).render(
     <>
       <Leva titleBar={{ title: 'Column' }} />
-      <LevaControls params={params} onResize={onResize} spine={spine} />
+      <LevaControls params={params} onResize={onResize} spine={spine} goo={goo} />
     </>,
   );
 }

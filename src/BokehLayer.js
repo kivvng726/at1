@@ -28,16 +28,17 @@ const bokehFragment = /* glsl */`
   varying vec3 vColor;
   varying float vOpacity;
   uniform float uOpacityScale;
+  uniform float uEdgePow;
   void main(){
     float d = length(gl_PointCoord - 0.5);
     if (d > 0.5) discard;
     float a = smoothstep(0.5, 0.0, d);
-    a = pow(a, 1.6);
+    a = pow(a, uEdgePow);
     gl_FragColor = vec4(vColor, a * vOpacity * uOpacityScale);
   }
 `;
 
-function buildRingGeometry(params, ringIndex, ringCount) {
+function buildRingGeometry(params, ringIndex, ringCount, colorMode) {
   const N = params.bokehCount;
   const pos = new Float32Array(N * 3);
   const size = new Float32Array(N);
@@ -46,6 +47,7 @@ function buildRingGeometry(params, ringIndex, ringCount) {
   const opacity = new Float32Array(N);
 
   const hueShift = (ringIndex / Math.max(ringCount, 1)) * 0.12;
+  const hsl = colorMode === 'hsl';
 
   for (let i = 0; i < N; i++) {
     const ang = Math.random() * Math.PI * 2;
@@ -54,13 +56,22 @@ function buildRingGeometry(params, ringIndex, ringCount) {
     pos[i * 3] = Math.cos(ang) * radius;
     pos[i * 3 + 1] = y;
     pos[i * 3 + 2] = Math.sin(ang) * radius;
-    size[i] = 6 + Math.random() * 20;
-    const c = hsl2rgb(0.55 + Math.random() * 0.35 + hueShift, 0.5, 0.65);
-    color[i * 3] = c[0];
-    color[i * 3 + 1] = c[1];
-    color[i * 3 + 2] = c[2];
+    if (hsl) {
+      size[i] = 6 + Math.random() * 20;
+      const c = hsl2rgb(0.55 + Math.random() * 0.35 + hueShift, 0.5, 0.65);
+      color[i * 3] = c[0];
+      color[i * 3 + 1] = c[1];
+      color[i * 3 + 2] = c[2];
+      opacity[i] = 0.06 + Math.random() * 0.14;
+    } else {
+      size[i] = THREE.MathUtils.lerp(6, 28, Math.random());
+      const lum = Math.random();
+      color[i * 3] = lum;
+      color[i * 3 + 1] = lum;
+      color[i * 3 + 2] = lum;
+      opacity[i] = THREE.MathUtils.lerp(0.06, 0.28, Math.random());
+    }
     phase[i] = Math.random() * Math.PI * 2;
-    opacity[i] = 0.06 + Math.random() * 0.14;
   }
 
   const geo = new THREE.BufferGeometry();
@@ -85,6 +96,7 @@ export class BokehLayer {
     this.rings = [];
     this._ringCount = -1;
     this._perRing = -1;
+    this._colorMode = params.bokehColorMode ?? 'mono';
 
     this.mat = new THREE.ShaderMaterial({
       vertexShader: bokehVertex,
@@ -93,13 +105,25 @@ export class BokehLayer {
         uTime: { value: 0 },
         uDpr: { value: 1 },
         uOpacityScale: { value: params.bokehOpacityScale },
+        uEdgePow: { value: 1.0 },
       },
       transparent: true,
       depthTest: false,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
     });
 
+    this.syncRings();
+  }
+
+  applyTheme() {
+    const mode = this.params.bokehColorMode ?? 'mono';
+    this.mat.blending = mode === 'hsl' ? THREE.AdditiveBlending : THREE.NormalBlending;
+    this.mat.uniforms.uEdgePow.value = mode === 'hsl' ? 1.6 : 1.0;
+    if (mode !== this._colorMode) {
+      this._colorMode = mode;
+      this._ringCount = -1;
+    }
     this.syncRings();
   }
 
@@ -107,7 +131,8 @@ export class BokehLayer {
     const p = this.params;
     const ringCount = Math.max(1, Math.floor(p.bokehRingCount));
     const perRing = Math.max(1, Math.floor(p.bokehCount));
-    if (ringCount === this._ringCount && perRing === this._perRing) return;
+    const colorMode = p.bokehColorMode ?? 'mono';
+    if (ringCount === this._ringCount && perRing === this._perRing && colorMode === this._colorMode) return;
 
     this.rings.forEach((ring) => {
       this.root.remove(ring);
@@ -116,7 +141,7 @@ export class BokehLayer {
     this.rings = [];
 
     for (let r = 0; r < ringCount; r++) {
-      const geo = buildRingGeometry(p, r, ringCount);
+      const geo = buildRingGeometry(p, r, ringCount, colorMode);
       const points = new THREE.Points(geo, this.mat);
       points.frustumCulled = false;
       points.position.y = ringCenterY(p, r, ringCount);
@@ -126,6 +151,7 @@ export class BokehLayer {
 
     this._ringCount = ringCount;
     this._perRing = perRing;
+    this._colorMode = colorMode;
   }
 
   layoutRings() {

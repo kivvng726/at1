@@ -9,15 +9,39 @@ const CARD_PRESETS = [
   { img: '/work/微信图片_20260620094757_1488_17.jpg', title: 'DEEP\nFIELD', tint: [0.10, 0.14, 0.18], edge: [0.60, 0.72, 0.86] },
   { img: '/work/微信图片_20260620094758_1489_17.jpg', title: 'HARMONIC\nSTATE', tint: [0.12, 0.10, 0.18], edge: [0.70, 0.60, 0.90] },
   { img: '/work/微信图片_20260620094800_1490_17.jpg', title: 'WELCOME TO\nHOGWARTS', tint: [0.10, 0.16, 0.13], edge: [0.60, 0.80, 0.70] },
-  { img: '/work/微信图片_20260620094800_1491_17.jpg', title: 'NEURAL\nDRIFT', tint: [0.10, 0.16, 0.13], edge: [0.58, 0.72, 0.78] },
+  {
+    video: '/work/f49f7a1a8ae5ebd2769e273a7118c421.mp4',
+    videoWebm: '/work/f49f7a1a8ae5ebd2769e273a7118c421.webm',
+    title: 'NEURAL\nDRIFT',
+    tint: [0.10, 0.16, 0.13],
+    edge: [0.58, 0.72, 0.78],
+  },
   { img: '/work/微信图片_20260620094801_1492_17.jpg', title: 'VOID\nECHO', tint: [0.15, 0.12, 0.18], edge: [0.62, 0.70, 0.84] },
-  { img: '/work/微信图片_20260620094803_1493_17.jpg', title: 'CHROMA\nPULSE', tint: [0.18, 0.12, 0.12], edge: [0.64, 0.68, 0.76] },
+  {
+    video: '/work/50108e788b0eec0f1471c6d9ff31f39d.mp4',
+    videoWebm: '/work/50108e788b0eec0f1471c6d9ff31f39d.webm',
+    title: 'CHROMA\nPULSE',
+    tint: [0.18, 0.12, 0.12],
+    edge: [0.64, 0.68, 0.76],
+  },
   { img: '/work/微信图片_20260620094803_1494_17.jpg', title: 'SILENT\nGRID', tint: [0.11, 0.15, 0.16], edge: [0.58, 0.73, 0.80] },
   { img: '/work/微信图片_20260620094804_1495_17.jpg', title: 'LUMEN\nPATH', tint: [0.14, 0.11, 0.15], edge: [0.61, 0.71, 0.83] },
   { img: '/work/微信图片_20260620094805_1496_17.jpg', title: 'AETHER\nFLOW', tint: [0.12, 0.13, 0.17], edge: [0.59, 0.75, 0.81] },
   { img: '/work/微信图片_20260620094806_1497_17.jpg', title: 'PRISM\nSHIFT', tint: [0.16, 0.13, 0.11], edge: [0.63, 0.69, 0.77] },
-  { img: '/work/微信图片_20260620094807_1498_17.jpg', title: 'SIGNAL\nLOST', tint: [0.11, 0.14, 0.20], edge: [0.62, 0.74, 0.85] },
-  { img: '/work/微信图片_20260620094808_1499_17.jpg', title: 'DARK\nMATTER', tint: [0.13, 0.11, 0.16], edge: [0.65, 0.68, 0.82] },
+  {
+    video: '/work/818375ea2182d7fafe5b224d9cbb3b48.mp4',
+    videoWebm: '/work/818375ea2182d7fafe5b224d9cbb3b48.webm',
+    title: 'SIGNAL\nLOST',
+    tint: [0.11, 0.14, 0.20],
+    edge: [0.62, 0.74, 0.85],
+  },
+  {
+    video: '/work/79be14b52934945e0de7877e17c2eb9c.mp4',
+    videoWebm: '/work/79be14b52934945e0de7877e17c2eb9c.webm',
+    title: 'DARK\nMATTER',
+    tint: [0.13, 0.11, 0.16],
+    edge: [0.65, 0.68, 0.82],
+  },
 ];
 
 const _up = new THREE.Vector3(0, 1, 0);
@@ -68,34 +92,75 @@ function geoKey(params) {
   return `${params.cardWidth}_${params.cardHeight}_${params.cardThickness}_${params.cardRadius}`;
 }
 
+let videoUnlockBound = false;
+function bindVideoUnlock() {
+  if (videoUnlockBound) return;
+  videoUnlockBound = true;
+  window.addEventListener('pointerdown', () => {
+    document.querySelectorAll('video').forEach((v) => v.play().catch(() => {}));
+  }, { once: true });
+}
+
+function makeVideoTexture(srcMp4, srcWebm, onReady) {
+  const video = document.createElement('video');
+  video.loop = true;
+  video.muted = true;
+  video.defaultMuted = true;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.autoplay = true;
+  video.preload = 'auto';
+
+  const remote = [srcMp4, srcWebm].some((u) => u && /^https?:\/\//.test(u));
+  if (remote) video.crossOrigin = 'anonymous';
+
+  const addSource = (url, type) => {
+    if (!url) return;
+    const s = document.createElement('source');
+    s.src = url;
+    s.type = type;
+    video.appendChild(s);
+  };
+  addSource(srcWebm, 'video/webm');
+  addSource(srcMp4, 'video/mp4');
+  video.load();
+
+  const tex = new THREE.VideoTexture(video);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+
+  video.addEventListener('loadeddata', () => {
+    tex.needsUpdate = true;
+    const aspect = video.videoWidth && video.videoHeight
+      ? video.videoWidth / video.videoHeight
+      : 1.6;
+    onReady?.(tex, aspect, video);
+  }, { once: true });
+
+  video.play().catch(() => {});
+  return { texture: tex, video };
+}
+
 function loadCardMedia(mesh, preset, maxAnisotropy) {
   const mat = mesh.material;
   mesh.userData.readyTarget = 0;
 
   if (preset.video) {
-    const video = document.createElement('video');
-    Object.assign(video, {
-      src: preset.video,
-      loop: true,
-      muted: true,
-      autoplay: true,
-      playsInline: true,
-      crossOrigin: 'anonymous',
-    });
-    video.play().catch(() => {});
-    const tex = new THREE.VideoTexture(video);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    mat.uniforms.uContent.value = tex;
-    mesh.userData.mediaVideo = video;
-
-    const onMeta = () => {
-      if (video.videoWidth && video.videoHeight) {
-        mat.uniforms.uImgAspect.value = video.videoWidth / video.videoHeight;
-      }
-      mesh.userData.readyTarget = 1;
-    };
-    video.addEventListener('loadedmetadata', onMeta);
-    if (video.readyState >= 1) onMeta();
+    const { texture, video } = makeVideoTexture(
+      preset.video,
+      preset.videoWebm,
+      (tex, aspect) => {
+        if (!mesh.parent) return;
+        mat.uniforms.uContent.value = tex;
+        mat.uniforms.uImgAspect.value = aspect;
+        mesh.userData.readyTarget = 1;
+      },
+    );
+    mat.uniforms.uContent.value = texture;
+    mesh.userData.video = video;
     return;
   }
 
@@ -227,10 +292,11 @@ function disposeCard(mesh) {
   }
   const content = mesh.material.uniforms.uContent.value;
   if (content && content !== PLACEHOLDER) content.dispose();
-  const video = mesh.userData.mediaVideo;
+  const video = mesh.userData.video;
   if (video) {
     video.pause();
     video.removeAttribute('src');
+    while (video.firstChild) video.removeChild(video.firstChild);
     video.load();
   }
   mesh.geometry.dispose();
@@ -329,8 +395,16 @@ function layoutWorkCards(params, cards, scrollNow, time, camera, hoveredIndex) {
     fade = fade * fade * (3 - 2 * fade);
     fade = Math.max(fade, hv);
     mesh.material.uniforms.uFade.value = fade;
+    mesh.userData.uFade = fade;
     mesh.visible = fade > 0.01;
     mesh.renderOrder = 10 + i;
+
+    const v = mesh.userData.video;
+    if (v) {
+      const visible = fade > 0.05;
+      if (visible && v.paused) v.play().catch(() => {});
+      else if (!visible && !v.paused) v.pause();
+    }
 
     const tm = mesh.userData.textMesh;
     if (tm) {
@@ -344,6 +418,7 @@ function layoutWorkCards(params, cards, scrollNow, time, camera, hoveredIndex) {
 
 export class WorkCardSystem {
   constructor(params, cardScene, renderer) {
+    bindVideoUnlock();
     this.params = params;
     this.cardScene = cardScene;
     this.maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -411,6 +486,8 @@ export class WorkCardSystem {
       u.uScene.value = sceneTexture;
       u.uResolution.value.copy(resolution);
       u.uTime.value = time;
+      const tex = u.uContent.value;
+      if (tex?.isVideoTexture) tex.update();
     });
   }
 }

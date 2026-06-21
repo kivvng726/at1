@@ -1,0 +1,121 @@
+.theme-pill {
+  position: fixed;
+  top: 24px;
+  right: 30px;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 30px;
+  border-radius: 999px;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  background: var(--fill);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: background 0.5s ease, box-shadow 0.5s ease;
+  isolation: isolate;
+}
+
+.theme-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.theme-pill::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%);
+  width: 64%;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--glow) 0%, transparent 70%);
+  filter: blur(9px);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: -1;
+  animation: pillGlow 4s ease-in-out infinite;
+}
+
+@keyframes pillGlow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.95; }
+}
+
+.tp-seg {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  font-family: inherit;
+  color: var(--txt-dim);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+
+.tp-seg.active {
+  color: var(--txt);
+  text-shadow: 0 0 11px var(--glow);
+}
+
+.tp-divider {
+  width: 30px;
+  height: 1px;
+  background: var(--divider);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.theme-pill:hover {
+  box-shadow: var(--shadow-hover), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.theme-pill:hover::after {
+  opacity: 1;
+  filter: blur(10px);
+}
+
+body[data-theme="glass"] {
+  --fill: rgba(12, 12, 20, 0.5);
+  --txt: #eef0ff;
+  --txt-dim: rgba(220, 225, 255, 0.42);
+  --glow: rgba(170, 150, 255, 0.9);
+  --divider: rgba(185, 172, 255, 0.6);
+  --rim: linear-gradient(
+    180deg,
+    rgba(212, 202, 255, 0.85),
+    rgba(120, 110, 180, 0.12) 45%,
+    rgba(55, 52, 90, 0.04)
+  );
+  --shadow: 0 0 22px rgba(150, 130, 255, 0.22), 0 12px 32px rgba(0, 0, 0, 0.45);
+  --shadow-hover: 0 0 30px rgba(170, 150, 255, 0.4), 0 14px 36px rgba(0, 0, 0, 0.5);
+}
+
+body[data-theme="mono"] {
+  --fill: rgba(255, 255, 255, 0.55);
+  --txt: #10141c;
+  --txt-dim: rgba(20, 28, 40, 0.42);
+  --glow: rgba(90, 120, 175, 0.55);
+  --divider: rgba(20, 30, 45, 0.45);
+  --rim: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(45, 60, 85, 0.28) 45%,
+    rgba(20, 30, 45, 0.18)
+  );
+  --shadow: 0 0 16px rgba(80, 110, 160, 0.18), 0 12px 28px rgba(120, 130, 150, 0.28);
+  --shadow-hover: 0 0 24px rgba(80, 110, 160, 0.3), 0 14px 32px rgba(120, 130, 150, 0.34);
+}

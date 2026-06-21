@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { ENV_PRESETS } from './themes.js';
 
 function makeFrostNormal(size = 128) {
   const canvas = document.createElement('canvas');
@@ -28,20 +29,20 @@ export class Spine {
     this.env = null;
     this.frostNormal = makeFrostNormal();
     this.mat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(params.spineColor ?? 0x9aa7bd),
+      color: new THREE.Color(params.spineColor ?? 0x000000),
       metalness: 0.0,
-      roughness: params.spineRoughness ?? 0.55,
-      transmission: params.spineTransmission ?? 1.0,
-      thickness: params.spineThickness ?? 1.6,
-      ior: params.spineIor ?? 1.3,
-      attenuationColor: new THREE.Color(params.spineAttenuationColor ?? 0xbcd2e0),
-      attenuationDistance: params.spineAttenuationDistance ?? 4.0,
+      roughness: params.spineRoughness ?? 1.0,
+      transmission: params.spineTransmission ?? 0.8,
+      thickness: params.spineThickness ?? 5.0,
+      ior: params.spineIor ?? 1.0,
+      attenuationColor: new THREE.Color(params.spineAttenuationColor ?? 0xffffff),
+      attenuationDistance: params.spineAttenuationDistance ?? 8.0,
       iridescence: params.spineIridescence ?? 1.0,
-      iridescenceIOR: params.spineIridescenceIOR ?? 1.3,
+      iridescenceIOR: params.spineIridescenceIOR ?? 1.0,
       iridescenceThicknessRange: [200, 900],
-      clearcoat: params.spineClearcoat ?? 0.35,
-      clearcoatRoughness: params.spineClearcoatRoughness ?? 0.45,
-      envMapIntensity: params.spineEnvIntensity ?? 1.3,
+      clearcoat: params.spineClearcoat ?? 1.0,
+      clearcoatRoughness: params.spineClearcoatRoughness ?? 1.0,
+      envMapIntensity: params.spineEnvIntensity ?? 3.0,
       normalMap: this.frostNormal,
       normalScale: new THREE.Vector2(0.15, 0.15),
       transparent: true,
@@ -49,13 +50,16 @@ export class Spine {
     });
   }
 
-  setEnvironment(scene, renderer) {
+  setEnvironment(scene, renderer, preset = 'mono') {
+    if (this.env) this.env.dispose();
+
+    const cfg = ENV_PRESETS[preset] ?? ENV_PRESETS.mono;
     const pmrem = new THREE.PMREMGenerator(renderer);
     const env = new THREE.Scene();
 
     env.add(new THREE.Mesh(
       new THREE.SphereGeometry(12, 24, 24),
-      new THREE.MeshBasicMaterial({ color: 0x0a0d14, side: THREE.BackSide }),
+      new THREE.MeshBasicMaterial({ color: cfg.sky, side: THREE.BackSide }),
     ));
 
     const light = (hex, x, y, z, w, h, mul = 1) => {
@@ -67,17 +71,32 @@ export class Spine {
       m.lookAt(0, 0, 0);
       env.add(m);
     };
-    light(0x6a5cc0, -7, 2, 2, 8, 8, 0.8);
-    light(0x4aa8c8, 7, 1, -2, 8, 8, 0.8);
-    light(0xc070a0, 1, -6, 4, 6, 6, 0.7);
-    light(0x70c0a0, -3, 6, -4, 5, 5, 0.5);
-    light(0xdfe6ef, 0, 8, 0, 4, 4, 1.4);
+    for (const [hex, x, y, z, w, h, mul] of cfg.lights) {
+      light(hex, x, y, z, w, h, mul);
+    }
 
     this.env = pmrem.fromScene(env, 0.04).texture;
     scene.environment = this.env;
     this.mat.envMap = this.env;
     this.mat.needsUpdate = true;
     pmrem.dispose();
+  }
+
+  applyParams() {
+    const p = this.params;
+    this.mat.color.set(p.spineColor);
+    this.mat.roughness = p.spineRoughness ?? 1.0;
+    this.mat.transmission = p.spineTransmission ?? 0.8;
+    this.mat.thickness = p.spineThickness ?? 5.0;
+    this.mat.ior = p.spineIor ?? 1.0;
+    this.mat.attenuationColor.set(p.spineAttenuationColor);
+    this.mat.attenuationDistance = p.spineAttenuationDistance ?? 8.0;
+    this.mat.iridescence = p.spineIridescence ?? 1.0;
+    this.mat.iridescenceIOR = p.spineIridescenceIOR ?? 1.0;
+    this.mat.clearcoat = p.spineClearcoat ?? 1.0;
+    this.mat.clearcoatRoughness = p.spineClearcoatRoughness ?? 1.0;
+    this.mat.envMapIntensity = p.spineEnvIntensity ?? 3.0;
+    this.refit();
   }
 
   load(url, onReady) {
@@ -116,7 +135,7 @@ export class Spine {
     if (!this.model) return;
     const p = this.params;
     const H = p.uHeight || 6;
-    const mul = p.spineScaleMul ?? 0.6;
+    const mul = p.spineScaleMul ?? 1;
 
     this.model.position.set(0, 0, 0);
     this.model.rotation.set(p.spineRotX || 0, p.spineRotY || 0, p.spineRotZ || 0);
