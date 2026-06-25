@@ -743,7 +743,7 @@ export function initLeva(params, onResize, spine, goo) {
 
   createRoot(el).render(
     <>
-      <Leva titleBar={{ title: 'Column' }} />
+      <Leva titleBar={{ title: 'Column' }} hidden />
       <LevaControls params={params} onResize={onResize} spine={spine} goo={goo} />
     </>,
   );

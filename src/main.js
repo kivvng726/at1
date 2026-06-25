@@ -17,6 +17,7 @@ import { initLeva } from './levaPanel.jsx';
 import { applyTheme } from './themes.js';
 import { initThemePill, reflectTheme } from './themePill.js';
 import { initAtMenu } from './atMenu.js';
+import { getSpineModelPath } from './spineModels.js';
 
 const params = {
   uSwirl: 2.2,
@@ -212,7 +213,7 @@ baseScene.add(bgQuad);
 
 const spine = new Spine(params);
 baseScene.add(spine.group);
-spine.load('/models/spine.glb');
+spine.load(getSpineModelPath());
 
 const cardSystem = new WorkCardSystem(params, cardScene, renderer);
 
